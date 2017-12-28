@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# This script allows the user to easily mark FreeBSD packages as automatically
+# installed. Packages marked as automatic are candidates for removal by
+# "pkg autoremove" if no other packages depend on them.
+#
+
+# Get the names of the packages that should be marked as automatic.
+exec 3>&1
+to_set_as_automatic=$( { 
+    echo "--title \"Manual packages\""
+    echo "--checklist \"Please select the packages you want to mark as automatic.\" 0 0 0"; 
+    # Dialog expects "tag" "description" and "check state" for each line.
+    # Use pkg query to get all manual packages
+    pkg query -e "%a=0" "%n \"%c\" off";
+} | dialog --file "&0" 2>&1 1>&3 )
+exec 3>&-
+
+if [ -z "$to_set_as_automatic" ]; then
+    # No packages selected
+    exit
+fi
+
+# Double check that the user wants to set these as automatic.
+echo Packages to be marked as AUTOMATIC:
+for pkg in $to_set_as_automatic; do
+    printf "\t%s\n" $pkg
+done
+printf "Proceed with marking packages as AUTOMATIC? [y/N]: "
+read response
+case "$response" in
+  y*|Y*) ;;
+  *) exit ;;
+esac
+
+# Set the packages as automatic
+for pkg in $to_set_as_automatic; do
+    pkg set -y -A 1 $pkg
+done
